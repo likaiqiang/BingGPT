@@ -6,11 +6,14 @@ const {
   ipcMain,
   Menu,
   BrowserWindow,
+  Notification
 } = require('electron')
 const contextMenu = require('electron-context-menu')
 const Store = require('electron-store')
 const path = require('path')
 const fs = require('fs')
+
+app.setAppUserModelId(process.execPath)
 
 if (require('electron-squirrel-startup')) app.quit()
 
@@ -37,8 +40,6 @@ const createWindow = () => {
     theme === 'system'
       ? nativeTheme.shouldUseDarkColors
       : theme === 'dark'
-      ? true
-      : false
   // Create window
   const mainWindow = new BrowserWindow({
     title: 'BingGPT',
@@ -47,14 +48,13 @@ const createWindow = () => {
     width: 601,
     height: 800,
     titleBarStyle: 'hidden',
-    titleBarOverlay: true,
     titleBarOverlay: {
       color: isDarkMode ? '#3b3b3b' : '#ffffff',
       symbolColor: isDarkMode ? '#f3f3f3' : '#2b2b2b',
     },
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      devTools: false,
+      devTools: true,
       nodeIntegration: true,
     },
   })
@@ -358,6 +358,28 @@ const createWindow = () => {
 }
 
 app.whenReady().then(() => {
+  ipcMain.on('export-png-direct',(event,dataURL)=>{
+    const data = dataURL.replace(/^data:\S+;base64,/, '')
+    const fileName = `BingGPT-${Math.floor(Date.now() / 1000)}.png`
+    const downloadPath = app.getPath('downloads')
+
+    fs.writeFile(`${downloadPath}/${fileName}`, data, 'base64', (err) => {
+      if (err) {
+        dialog.showMessageBox({
+          type: 'info',
+          message: 'Error',
+          detail: err,
+        })
+      }
+      else{
+        const notification = new Notification({
+          title: 'tips',
+          body: `${downloadPath}/${fileName} success`
+        })
+        notification.show()
+      }
+    })
+  })
   // Save to file
   ipcMain.on('export-data', (event, format, dataURL) => {
     if (format) {

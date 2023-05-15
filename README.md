@@ -73,3 +73,9 @@
 ## License
 
 Apache-2.0 License
+
+## question
+
+
+- https://stackoverflow.com/questions/70575334/how-to-fix-this-npm-code-1-error-installing-electron
+- https://www.electronforge.io/advanced/debugging

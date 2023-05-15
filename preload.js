@@ -105,15 +105,37 @@ window.addEventListener('DOMContentLoaded', () => {
   if (previewOptions) {
     previewOptions.style.cssText = 'bottom: 1px'
   }
+  const timerId = setInterval(()=>{
+    const newTopicBtn = findNewTopicBtn()
+    if(newTopicBtn){
+      clearInterval(timerId)
+      const btnIcon = newTopicBtn.querySelector('.button-compose-icon')
+      btnIcon.addEventListener('click',e=>{
+        e.stopPropagation()
+        console.log('btnIcon stopPropagation')
+        getExportCanvas('png').then((canvas)=>{
+          const pngDataURL = canvas.toDataURL('image/png')
+          ipcRenderer.send('export-png-direct',  pngDataURL)  // PNG
+          const clickEvent = new Event("click", { bubbles: true })
+          btnIcon.parentNode.dispatchEvent(clickEvent)
+        })
+      })
+    }
+  },300)
 })
+
+const findNewTopicBtn = ()=>{
+  return document
+      .getElementsByTagName('cib-serp')[0]
+      .shadowRoot.getElementById('cib-action-bar-main')
+      .shadowRoot.querySelector('button[class="button-compose"]')
+}
+
 
 // New topic
 ipcRenderer.on('new-topic', () => {
   try {
-    const newTopicBtn = document
-      .getElementsByTagName('cib-serp')[0]
-      .shadowRoot.getElementById('cib-action-bar-main')
-      .shadowRoot.querySelector('button[class="button-compose"]')
+    const newTopicBtn = findNewTopicBtn()
     if (newTopicBtn) {
       newTopicBtn.click()
     }
@@ -223,54 +245,62 @@ ipcRenderer.on('set-font-size', (event, size) => {
   }
 })
 
-// Convert from conversation
-ipcRenderer.on('export', (event, format, isDarkMode) => {
-  try {
-    const chatMain = document
+const getExportCanvas = (format,isDarkMode)=>{
+  if(typeof isDarkMode === 'undefined'){
+    const url = new URL(location.href)
+    isDarkMode = !!(url.searchParams.get('darkschemeovr'))
+  }
+  const chatMain = document
       .getElementsByTagName('cib-serp')[0]
       .shadowRoot.getElementById('cib-conversation-main')
       .shadowRoot.getElementById('cib-chat-main')
-    html2canvas(chatMain, {
-      backgroundColor: isDarkMode ? '#2b2b2b' : '#f3f3f3',
-      logging: false,
-      useCORS: true,
-      allowTaint: true,
-      ignoreElements: (element) => {
-        if (
+  return html2canvas(chatMain, {
+    backgroundColor: isDarkMode ? '#2b2b2b' : '#f3f3f3',
+    logging: false,
+    useCORS: true,
+    allowTaint: true,
+    ignoreElements: (element) => {
+      if (
           element.classList.contains('intro') ||
           element.getAttribute('type') === 'host'
-        ) {
-          return true
-        }
-        if (
+      ) {
+        return true
+      }
+      if (
           format === 'md' &&
           (element.classList.contains('label') ||
-            element.classList.contains('hidden') ||
-            element.classList.contains('expand-button') ||
-            element.getAttribute('type') === 'meta')
-        ) {
-          return true
-        }
-      },
-      onclone: (doc) => {
-        const bodyWidth = doc.body.clientWidth
-        const paddingX = bodyWidth > 767 ? '32px' : '16px'
-        const paddingBottom = bodyWidth > 767 ? '48px' : '36px'
-        const paddingTop =
+              element.classList.contains('hidden') ||
+              element.classList.contains('expand-button') ||
+              element.getAttribute('type') === 'meta')
+      ) {
+        return true
+      }
+    },
+    onclone: (doc) => {
+      const bodyWidth = doc.body.clientWidth
+      const paddingX = bodyWidth > 767 ? '32px' : '16px'
+      const paddingBottom = bodyWidth > 767 ? '48px' : '36px'
+      const paddingTop =
           chatMain.getElementsByTagName('cib-chat-turn')[0].offsetHeight === 0
-            ? '0'
-            : bodyWidth > 767
-            ? '24px'
-            : '18px'
-        doc.getElementById(
+              ? '0'
+              : bodyWidth > 767
+                  ? '24px'
+                  : '18px'
+      doc.getElementById(
           'cib-chat-main'
-        ).style.cssText = `padding: ${paddingTop} ${paddingX} ${paddingBottom} ${paddingX}`
-        // Markdown
-        if (format === 'md') {
-          markdownHandler(doc.getElementById('cib-chat-main'))
-        }
-      },
-    }).then((canvas) => {
+      ).style.cssText = `padding: ${paddingTop} ${paddingX} ${paddingBottom} ${paddingX}`
+      // Markdown
+      if (format === 'md') {
+        markdownHandler(doc.getElementById('cib-chat-main'))
+      }
+    },
+  })
+}
+
+// Convert from conversation
+ipcRenderer.on('export', (event, format, isDarkMode) => {
+  try {
+    getExportCanvas(format,isDarkMode).then((canvas) => {
       const pngDataURL = canvas.toDataURL('image/png')
       if (format === 'png') {
         // PNG
